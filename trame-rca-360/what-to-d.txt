@@ -1,0 +1,5 @@
+1. make sure barney can render 360 images, dont need to use trame app, 6 spheres in all directions.
+
+2. once the flat file works replace, fake method line with actual rendering.
+
+3. writing more pages, one page abstract /intro, one related works, one methods

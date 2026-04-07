@@ -1,0 +1,10 @@
+Babylon needs:
+    canvas.width
+    canvas.height
+If DisplayArea.js dynamically resizes children,
+you must hook Babylon engine resize (inside ImageDisplayArea360.js):
+    window.addEventListener('resize', () => {
+    this.engine.resize();
+    });
+
+10.140.242.69

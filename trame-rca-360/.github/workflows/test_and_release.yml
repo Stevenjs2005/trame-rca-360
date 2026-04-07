@@ -1,0 +1,166 @@
+name: Test and Release
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      # Install and run pre-commit
+      - run: |
+          pip install pre-commit
+          pre-commit install
+          pre-commit run --all-files
+
+  pytest:
+    name: Pytest ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9"]
+        config:
+        - {
+            name: "Linux",
+            os: ubuntu-latest
+          }
+        - {
+            name: "MacOSX",
+            os: macos-latest
+          }
+        - {
+            name: "Windows",
+            os: windows-latest
+          }
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install OSMesa for Linux
+      if: matrix.config.os == 'ubuntu-latest'
+      run: sudo apt-get install -y libosmesa6-dev libturbojpeg
+
+    - name: Set Up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18
+
+    - name: Build Vue Components
+      run: |
+        cd vue-components
+        npm i
+        npm run build
+
+    - name: Install and Run Tests
+      run: |
+        pip install ".[turbo]"
+        pip install -r tests/requirements.txt
+        # Install requirements for playwright
+        playwright install
+        pytest -s ./tests
+      env:
+        CI: true
+
+  vitest:
+    name: Vitest (Vue Unit Tests)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set Up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Dependencies
+        run: |
+          cd vue-components
+          npm install
+
+      - name: Run Vitest
+        run: |
+          cd vue-components
+          npm run test
+
+  test-npm-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set Up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Build Vue Components
+        run: |
+          cd vue-components
+          npm i
+          npm run build
+
+  release:
+    needs: [
+      pre-commit,
+      pytest,
+      vitest,
+      test-npm-build,
+    ]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    environment:
+      name: pypi
+      url: https://pypi.org/p/trame-rca
+    permissions:
+      id-token: write # IMPORTANT: mandatory for trusted publishing
+      contents: write # IMPORTANT: mandatory for making GitHub Releases
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set Up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Build Vue Components
+        run: |
+          cd vue-components
+          npm i
+          npm run build
+
+      - name: Python Semantic Release
+        id: release
+        uses: relekang/python-semantic-release@v9.15.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish package distributions to PyPI
+        if: steps.release.outputs.released == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
