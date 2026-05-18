@@ -1,181 +1,75 @@
-import * as BABYLON from "@babylonjs/core";
- // import * as loaders from "@babylonjs/loaders";
+    // //set initial dome texture
+    // setDomeTexture(url) {
+    //   if (!this.dome) return;
 
-export default {
-  props: {
-    name: {
-      type: String,
-      default: "default",
-    },
-    origin: {
-      type: String,
-      default: "anonymous",
-    },
-    imageStyle: {
-      type: Object,
-      default: () => ({ width: "100%", height: "100%" }),
-    },
-    staticImage: {
-      type: String,
-      default: null,
-    },
-  },
+    //   if (this.dome.texture) {
+    //     this.dome.texture.dispose();
+    //   }
 
-  inject: ["trame"],
-  template: `
-    <canvas
-      ref="canvas"
-      :style="imageStyle"
-    ></canvas>`,
-  mounted() {
-    this.$nextTick(() => {
-      this.initBabylon();
+    //   this.dome.texture = new BABYLON.Texture(
+    //     url,
+    //     this.scene,
+    //     true,
+    //     false,
+    //     BABYLON.Texture.TRILINEAR_SAMPLINGMODE
+    //   );
+    // },
 
-      if (!this.staticImage) {
-        this.subscribeToStream();
-      }
-    });
-  },
 
-  beforeUnmount() {
-    this.cleanup();
-  },
+    # ---------------------------------------------------------------------------
+# Render function
+# ---------------------------------------------------------------------------
 
-  beforeDestroy() {
-    this.cleanup();
-  },
+# def render(width: int, height: int, samples_per_pixel: int,
+#            output_path: str | None = None,
+#            world=None) -> np.ndarray:
+#     """
+#     Renders a 360 equirectangular image using the shared barney device.
 
-  methods: {
-    // ----------------------------
-    // Babylon Setup
-    // ----------------------------
-    initBabylon() {
-      console.log("__init__")
-      const canvas = this.$refs.canvas;
-      if (!canvas) {
-        console.error("Canvas ref not found");
-        return;
-      }
-      console.log("canvas created")
-      this.engine = new BABYLON.Engine(canvas, true);
-      console.log("engine created")
-      this.scene = new BABYLON.Scene(this.engine);
-      console.log("scene created")
-      // Camera inside sphere
-      this.camera = new BABYLON.ArcRotateCamera(
-        "camera",
-        Math.PI / 2,
-        Math.PI / 2,
-        1,
-        BABYLON.Vector3.Zero(),
-        this.scene
-      );
-      console.log("camera created")
-      this.camera.attachControl(canvas, true);
-      this.camera.wheelPrecision = 50;
-      this.camera.minZ = 0.1;
+#     @param width             - image width in pixels
+#     @param height            - image height (should be width // 2 for equirectangular)
+#     @param samples_per_pixel - number of paths traced per pixel
+#     @param output_path       - optional path to save PNG output
+#     @param world             - ANARI world object to render; defaults to cardinal scene
+#     @returns                 - RGBA pixel array of shape (height, width, 4)
+#     """
+#     device = get_device()
 
-      // Use static image if provided
-      console.log("camera attached")
-      console.log("testing static image")
-      const domeTexture = this.staticImage || "Waiting for Rendered Image";
-      console.log(domeTexture)
-      try {
-        this.dome = new BABYLON.PhotoDome(
-          "anari-dome",
-          domeTexture,
-          { resolution: 32, size: 1000 },
-          this.scene
-        );
-      } catch (e) {we
-        console.error("PhotoDome failed:", e);
-      }
-      console.log("Photodome Created")
-      // Render loop
-      this.engine.runRenderLoop(() => {
-        if (this.scene) {
-          this.scene.render();
-        }
-      });
-      window.addEventListener("resize", this.handleResize);
-    },
+#     if world is None:
+#         world = build_scene_cardinals(device)
 
-    handleResize() {
-      if (this.engine) {
-        this.engine.resize();
-      }
-    },
+#     assert world is not None
 
-    // ----------------------------
-    // Stream Subscription
-    // ----------------------------
-    subscribeToStream() {
-      if (!this.trame) return;
+#     camera = device.newCamera('omnidirectional')
+#     camera.setParameter('position',  anari.float3, (0.0, 0.0, 0.0))
+#     camera.setParameter('up',        anari.float3, (0.0, 1.0, 0.0))
+#     camera.setParameter('direction', anari.float3, (0.0, 0.0, -1.0))
+#     camera.setParameter('layout',    anari.STRING, 'equirectangular')
+#     camera.commitParameters()
 
-      this.onImage = ([{ name, meta, content }]) => {
-        if (this.name !== name) return;
+#     renderer = device.newRenderer('default')
+#     renderer.setParameter('pixelSamples', anari.INT32, samples_per_pixel)
+#     renderer.commitParameters()
 
-        const supportedImageTypes = [
-          "image/jpeg",
-          "image/png",
-          "image/webp",
-        ];
+#     frame = device.newFrame()
+#     frame.setParameter('size',          anari.uint2,     [width, height])
+#     frame.setParameter('channel.color', anari.DATA_TYPE, anari.UFIXED8_RGBA_SRGB)
+#     frame.setParameter('renderer',      anari.RENDERER,  renderer)
+#     frame.setParameter('camera',        anari.CAMERA,    camera)
+#     frame.setParameter('world',         anari.WORLD,     world)
+#     frame.commitParameters()
 
-        if (!supportedImageTypes.includes(meta.type)) return;
+#     frame.render()
 
-        this.updateDomeTexture(meta.type, content);
-      };
+#     pixels = np.array(frame.get('channel.color'))
 
-      this.wslinkSubscription = this.trame.client
-        .getConnection()
-        .getSession()
-        .subscribe("trame.rca.topic.stream", this.onImage);
-    },
+#     del frame
+#     del renderer
+#     del camera
+#     del world
 
-    // ----------------------------
-    // Streaming Texture Update
-    // ----------------------------
-    updateDomeTexture(type, content) {
-      const blob = new Blob([content], { type });
-      const url = URL.createObjectURL(blob);
+#     if output_path is not None:
+#         Image.fromarray(pixels, mode="RGBA").convert("RGB").save(output_path)
+#         print(f"[pynari] Saved → {output_path}")
 
-      if (!this.dome) return;
-
-      // Properly dispose old texture
-      if (this.dome.texture) {
-        this.dome.texture.dispose();
-      }
-
-      this.dome.texture = new BABYLON.Texture(
-        url,
-        this.scene,
-        true,
-        false,
-        BABYLON.Texture.TRILINEAR_SAMPLINGMODE,
-        () => {
-          URL.revokeObjectURL(url);
-        }
-      );
-    },
-
-    // ----------------------------
-    // Cleanup
-    // ----------------------------
-    cleanup() {
-      if (this.wslinkSubscription && this.trame) {
-        this.trame.client
-          .getConnection()
-          .getSession()
-          .unsubscribe(this.wslinkSubscription);
-        this.wslinkSubscription = null;
-      }
-
-      window.removeEventListener("resize", this.handleResize);
-
-      if (this.engine) {
-        this.engine.dispose();
-        this.engine = null;
-      }
-    },
-  },
-};
+#     return pixels

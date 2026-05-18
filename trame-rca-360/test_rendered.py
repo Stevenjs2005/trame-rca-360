@@ -13,8 +13,7 @@ if __name__ == "__main__":
     WIDTH  = 800 if not py.has_cuda_capable_gpu() else 2048
     HEIGHT = WIDTH // 2
     SPP    = 16   if not py.has_cuda_capable_gpu() else 64
-    pixel_array = render(width=WIDTH, height=HEIGHT, samples_per_pixel=SPP, output_path="public/output.png", randomize = False)
- 
+    pixel_array = render(WIDTH, HEIGHT, SPP, stereo=True, interpupillary_distance=0.64, output_path="/home/schm8173/dev/trame-rca-360/trame-rca-360/public/output.png")
     #converting pixel array to png
     img = Image.fromarray(pixel_array, mode="RGBA").convert("RGB")
     buf = io.BytesIO()

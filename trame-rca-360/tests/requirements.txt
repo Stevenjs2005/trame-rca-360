@@ -1,7 +1,9 @@
+matplotlib
 numpy
 pillow
 pillow-avif-plugin
 pixelmatch
+pynari
 pytest
 pytest-asyncio
 pytest-playwright

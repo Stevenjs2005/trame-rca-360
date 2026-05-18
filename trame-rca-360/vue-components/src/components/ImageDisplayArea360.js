@@ -49,8 +49,11 @@ export default {
   watch: {
     staticImage(newImage) {
       if (!newImage) return;
-      this.setDomeTexture(newImage);
-      console.log("setDomeTexture called");
+      if (!this.dome) {
+        this.createDome(newImage);  // first image — create the dome
+      } else {
+        this.setDomeTexture(newImage);  // subsequent images — swap texture
+      }
     },
   },
 
@@ -59,57 +62,57 @@ export default {
     // Babylon Setup
     // ----------------------------
     initBabylon() {
-      console.log("__init__");
-      console.log("change has been made");
       const canvas = this.$refs.canvas;
       if (!canvas) {
         console.error("Canvas ref not found");
         return;
       }
-      console.log("canvas created");
+    
       this.engine = new BABYLON.Engine(canvas, true);
-      console.log("engine created");
       this.scene = new BABYLON.Scene(this.engine);
-      console.log("scene created");
-
-      // Camera inside sphere
-      this.camera = new BABYLON.ArcRotateCamera(
+    
+      this.camera = new BABYLON.UniversalCamera(
         "camera",
-        Math.PI / 2,
-        Math.PI / 2,
-        1,
         BABYLON.Vector3.Zero(),
         this.scene
       );
-      console.log("camera created");
-      this.camera.attachControl(canvas, true);
-      this.camera.wheelPrecision = 50;
       this.camera.minZ = 0.1;
+      this.camera.attachControl(canvas, true);
+      // Allow looking around by clicking and dragging
+      this.camera.inputs.addMouseWheel();  // optional: zoom
+      this.camera.speed = 0;               // disable WASD movement — you're inside a sphere
+      this.camera.angularSensibility = 500; // lower = faster mouse look (default 2000)
 
-      console.log("camera attached");
-      console.log("testing static image");
-      const domeTexture = this.staticImage || "Waiting for Rendered Image";
-      console.log(domeTexture);
-
-      try {
-        this.dome = new BABYLON.PhotoDome(
-          "anari-dome",
-          domeTexture,
-          { resolution: 32, size: 1000 },
-          this.scene
-        );
-      } catch (e) {
-        console.error("PhotoDome failed:", e);
+      // Only create the dome if a real image is available at mount time.
+      // If not, the watcher will call createDome() when staticImage first arrives.
+      if (this.staticImage) {
+        this.createDome(this.staticImage);
       }
-      console.log("Photodome Created");
-
-      // Render loop
+    
+      // WebXR
+      if (navigator.xr) {
+        this.scene.createDefaultXRExperienceAsync({
+          uiOptions: { sessionMode: "immersive-vr" },
+          optionalFeatures: true,
+        }).then((xr) => {
+          this.xrHelper = xr;
+          xr.baseExperience.onStateChangedObservable.add((state) => {
+            if (state === BABYLON.WebXRState.IN_XR) {
+              console.log("VR session active");
+            }
+            if (state === BABYLON.WebXRState.NOT_IN_XR) {
+              console.log("VR session ended");
+            }
+          });
+        }).catch((err) => {
+          console.warn("WebXR not available:", err);
+        });
+      }
+    
       this.engine.runRenderLoop(() => {
-        if (this.scene) {
-          this.scene.render();
-        }
+        if (this.scene) this.scene.render();
       });
-
+    
       window.addEventListener("resize", this.handleResize);
     },
 
@@ -119,21 +122,32 @@ export default {
       }
     },
 
-    //set initial dome texture
+    createDome(url) {
+      if (this.dome) {
+        this.dome.dispose();
+      }
+      this.dome = new BABYLON.PhotoDome(
+        "anari-dome",
+        url,
+        { resolution: 32, size: 1000 },
+        this.scene,
+      );
+      this.dome.imageMode = BABYLON.PhotoDome.MODE_TOPBOTTOM;
+      console.log("PhotoDome created with MODE_TOPBOTTOM");
+    },
+
     setDomeTexture(url) {
       if (!this.dome) return;
-
       if (this.dome.texture) {
         this.dome.texture.dispose();
       }
-
       this.dome.texture = new BABYLON.Texture(
-        url,
-        this.scene,
-        true,
-        false,
+        url, this.scene, true, false,
         BABYLON.Texture.TRILINEAR_SAMPLINGMODE
       );
+      // Re-apply after every texture swap
+      this.dome.imageMode = BABYLON.PhotoDome.MODE_TOPBOTTOM;
+      console.log("new SetDomeTexture method added");
     },
 
     //subscribe to trame stream

@@ -6,7 +6,7 @@ from trame.app import get_server
 from trame.ui.vuetify3 import SinglePageLayout
 from trame_rca.widgets import rca
 from trame.widgets import vuetify3
-from render360 import render
+from render360 import render,build_random_scene, get_device
 import pynari as py
 
 NUM_RENDERS = 5
@@ -20,7 +20,7 @@ if __name__ == "__main__":
     data_urls = []
     for i in range(NUM_RENDERS):
         print(f"[test] Rendering scene {i + 1}/{NUM_RENDERS} …")
-        pixel_array = render(width=WIDTH, height=HEIGHT, samples_per_pixel=SPP, randomize=True)
+        pixel_array = render(width=WIDTH, height=HEIGHT, samples_per_pixel=SPP, world = build_random_scene(get_device()))
         img = Image.fromarray(pixel_array, mode="RGBA").convert("RGB")
         buf = io.BytesIO()
         img.save(buf, format="PNG")
