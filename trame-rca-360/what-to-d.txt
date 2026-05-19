@@ -1,0 +1,38 @@
+Steps to complete to completely finish research
+
+Currently vr testing has not been done at all
+ 1. complete stereo image creating first
+ 2. ensure looking and sudo looking works
+ 3. figure out how to get 360 viewer to put vr headset in the photodome rather then only showing the browser window like on computer
+
+Validate PointCloud Dataset
+ 1. figure out correct spot for the datset so that professor wont need to have it download it himself and will be in the repository
+ 2. fix render360 file to ensure that it can read in the pointcloud data and accurately reflect it in the stereo image creation
+
+Paper
+ 1. work on this when the actual is research is done
+ 
+
+
+
+
+
+
+The data is a ski resort parking area — that explains the yellow (bare ground/pavement) and pink/purple (vegetation in CIR). 
+The circular arc patterns we saw are the LiDAR scan lines from the state's 1m resolution dataset.
+The current rendering issues make sense now:
+
+The dataset is very small geographically (a parking lot)
+The state LiDAR at 1m resolution means points are spaced 1m apart — sparse for a close-up 360 view
+The CIR colors look "wrong" because infrared makes vegetation pink/purple and bare ground yellow — that's correct, just unfamiliar
+
+The Structure from Motion point cloud would be much better for this because:
+
+Drone imagery gives ~2-3cm resolution vs 1m for state LiDAR
+SfM generates a dense mesh of millions of tightly packed points
+The colors would be natural RGB, not infrared
+It would actually look like a place you're standing in
+
+The current 360 rendering isn't "wrong" per se — it's just that 1m LiDAR of a flat parking lot isn't visually interesting from ground level.
+The gaps and black areas are literally where the laser didn't hit. My recommendation: ask for the SfM point cloud. It will render dramatically better.
+In the meantime, do you want to try loading the RGB orthophoto drone imagery instead of the LiDAR to see what the site actually looks like?
